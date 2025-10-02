@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { SttService, RecognitionResult } from '../services/sttService';
+import { SttService, RecognitionResult, ChatMessage, OpenAIResponse } from '../services/sttService';
 
 interface SttContextType {
   isConnected: boolean;
@@ -7,12 +7,14 @@ interface SttContextType {
   isRecognizing: boolean;
   currentSessionId: string | null;
   results: RecognitionResult[];
+  chatMessages: ChatMessage[];
   error: string | null;
   startRecognition: () => Promise<void>;
   stopRecognition: () => Promise<void>;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   clearResults: () => void;
+  clearChatMessages: () => void;
   clearError: () => void;
 }
 
@@ -29,6 +31,7 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [results, setResults] = useState<RecognitionResult[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sttService, setSttService] = useState<SttService | null>(null);
 
@@ -38,8 +41,23 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
         const service = new SttService(apiUrl);
         setSttService(service);
         
-        service.onRecognitionResult((result: RecognitionResult) => {
+        service.setOnRecognitionResultCallback((result: RecognitionResult) => {
           setResults(prev => [...prev, result]);
+          
+          if (result.isFinal && result.text.trim()) {
+            const userMessage: ChatMessage = {
+              id: result.id,
+              role: 'user',
+              content: result.text,
+              timestamp: result.timestamp,
+              sessionId: result.sessionId,
+            };
+            setChatMessages(prev => [...prev, userMessage]);
+          }
+        });
+
+        service.setOnOpenAIResponseCallback((response: OpenAIResponse) => {
+          setChatMessages(prev => [...prev, response.response]);
         });
 
         service.onRecognitionError((error: any) => {
@@ -134,6 +152,10 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
     setResults([]);
   };
 
+  const clearChatMessages = () => {
+    setChatMessages([]);
+  };
+
   const clearError = () => {
     setError(null);
   };
@@ -144,12 +166,14 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
     isRecognizing,
     currentSessionId,
     results,
+    chatMessages,
     error,
     startRecognition,
     stopRecognition,
     startRecording,
     stopRecording,
     clearResults,
+    clearChatMessages,
     clearError,
   };
 

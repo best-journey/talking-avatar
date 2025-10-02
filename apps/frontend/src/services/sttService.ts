@@ -7,7 +7,7 @@ export interface RecognitionResult {
   offset: number;
   duration: number;
   sessionId: string;
-  timestamp: Date;
+  timestamp: string;
   isFinal: boolean;
 }
 
@@ -15,9 +15,23 @@ export interface RecognitionSession {
   id: string;
   language: string;
   audioFormat: string;
-  startTime: Date;
+  startTime: string;
   isActive: boolean;
   results: RecognitionResult[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  sessionId: string;
+}
+
+export interface OpenAIResponse {
+  sessionId: string;
+  response: ChatMessage;
+  timestamp: string;
 }
 
 export interface SttConfig {
@@ -35,6 +49,8 @@ export class SttService {
   private chunkId = 0;
   private audioContext: AudioContext | null = null;
   private workletNode: AudioWorkletNode | null = null;
+  private onRecognitionResultCallback?: (result: RecognitionResult) => void;
+  private onOpenAIResponseCallback?: (response: OpenAIResponse) => void;
 
   constructor(private apiUrl: string = 'http://localhost:3000') {}
 
@@ -58,6 +74,22 @@ export class SttService {
       this.socket.on('disconnect', () => {
         this.isConnected = false;
         console.log('Disconnected from STT service');
+      });
+
+      // Listen for recognition results
+      this.socket.on('recognition_result', (result: RecognitionResult) => {
+        console.log('Received recognition result:', result);
+        if (this.onRecognitionResultCallback) {
+          this.onRecognitionResultCallback(result);
+        }
+      });
+
+      // Listen for OpenAI responses
+      this.socket.on('openai_response', (response: OpenAIResponse) => {
+        console.log('Received OpenAI response:', response);
+        if (this.onOpenAIResponseCallback) {
+          this.onOpenAIResponseCallback(response);
+        }
       });
     });
   }
@@ -225,5 +257,13 @@ export class SttService {
 
   isRecording(): boolean {
     return this.mediaRecorder?.state === 'recording';
+  }
+
+  setOnRecognitionResultCallback(callback: (result: RecognitionResult) => void): void {
+    this.onRecognitionResultCallback = callback;
+  }
+
+  setOnOpenAIResponseCallback(callback: (response: OpenAIResponse) => void): void {
+    this.onOpenAIResponseCallback = callback;
   }
 }
