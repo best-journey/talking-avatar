@@ -27,8 +27,12 @@ export class SttGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(SttGateway.name);
   private readonly clientSessions = new Map<string, string>();
+  private readonly sessionSockets = new Map<string, Socket>();
 
-  constructor(private readonly sttService: SttService) {}
+  constructor(private readonly sttService: SttService) {
+    this.sttService.setOnRecognitionResultCallback(this.handleRecognitionResult.bind(this));
+    this.sttService.setOnOpenAIResponseCallback(this.handleOpenAIResponse.bind(this));
+  }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -41,6 +45,7 @@ export class SttGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (sessionId) {
       this.stopRecognition(client, sessionId);
       this.clientSessions.delete(client.id);
+      this.sessionSockets.delete(sessionId);
     }
   }
 
@@ -53,7 +58,7 @@ export class SttGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const sessionId = data.sessionId || `session_${client.id}_${Date.now()}`;
       
       this.clientSessions.set(client.id, sessionId);
-      
+      this.sessionSockets.set(sessionId, client);
       const session = await this.sttService.startRecognition(sessionId, data);
       
       client.emit('recognition_started', {
@@ -181,6 +186,26 @@ export class SttGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.sttService.stopRecognition(sessionId);
     } catch (error) {
       this.logger.error(`Error cleaning up session ${sessionId}:`, error);
+    }
+  }
+
+  private handleRecognitionResult(sessionId: string, result: RecognitionResult) {
+    const client = this.sessionSockets.get(sessionId);
+    if (client) {
+      client.emit('recognition_result', result);
+      this.logger.debug(`Emitted recognition result to client ${client.id}: ${result.text}`);
+    }
+  }
+
+  private handleOpenAIResponse(sessionId: string, response: any) {
+    const client = this.sessionSockets.get(sessionId);
+    if (client) {
+      client.emit('openai_response', {
+        sessionId,
+        response,
+        timestamp: new Date(),
+      });
+      this.logger.debug(`Emitted OpenAI response to client ${client.id}: ${response.content?.substring(0, 50)}...`);
     }
   }
 }

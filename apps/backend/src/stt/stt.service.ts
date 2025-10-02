@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk';
 import { RecognitionResult, RecognitionSession } from './entities/recognition-result.entity';
 import { StartRecognitionDto, AudioFormat, Language } from './dto/start-recognition.dto';
+import { OpenAIService } from '../openai/openai.service';
 
 @Injectable()
 export class SttService implements OnModuleInit, OnModuleDestroy {
@@ -14,8 +15,13 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
   private speechConfig: sdk.SpeechConfig;
   private audioConfig: sdk.AudioConfig;
   private isInitialized = false;
+  private onRecognitionResultCallback?: (sessionId: string, result: RecognitionResult) => void;
+  private onOpenAIResponseCallback?: (sessionId: string, response: any) => void;
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private openaiService: OpenAIService,
+  ) {}
 
   async onModuleInit() {
     try {
@@ -131,7 +137,6 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
       const pushStream = this.pushStreams.get(sessionId);
       if (pushStream) {
         pushStream.write(audioData);
-        this.logger.debug(`Processed audio chunk for session ${sessionId}, size: ${audioData.byteLength} bytes`);
       } else {
         throw new Error(`Push stream not found for session ${sessionId}`);
       }
@@ -189,6 +194,14 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
     return Array.from(this.sessions.values());
   }
 
+  setOnRecognitionResultCallback(callback: (sessionId: string, result: RecognitionResult) => void): void {
+    this.onRecognitionResultCallback = callback;
+  }
+
+  setOnOpenAIResponseCallback(callback: (sessionId: string, response: any) => void): void {
+    this.onOpenAIResponseCallback = callback;
+  }
+
   private setupRecognizerEvents(recognizer: sdk.SpeechRecognizer, sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -238,6 +251,20 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
           
           session.results.push(result);
           this.logger.log(`Recognized: "${result.text}" (confidence: ${(result.confidence * 100).toFixed(1)}%)`);
+          
+          if (this.onRecognitionResultCallback) {
+            this.onRecognitionResultCallback(sessionId, result);
+          }
+          
+          this.openaiService.generateResponse(result.text, sessionId).then((response) => {
+            this.logger.log(`Generated response for session ${sessionId}: ${response.content}`);
+            
+            if (this.onOpenAIResponseCallback) {
+              this.onOpenAIResponseCallback(sessionId, response);
+            }
+          }).catch((error) => {
+            this.logger.error(`Error generating OpenAI response for session ${sessionId}:`, error);
+          });
         } else if (e.result.reason === sdk.ResultReason.NoMatch) {
           this.logger.debug(`No match for session ${sessionId}: ${e.result.reason}`);
         } else {
