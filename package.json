@@ -1,0 +1,31 @@
+{
+  "name": "talking-avatar-monorepo",
+  "version": "1.0.0",
+  "description": "NestJS + Vite monorepo for talking avatar application",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run start:dev --workspace=@talking-avatar/backend",
+    "dev:frontend": "npm run dev --workspace=@talking-avatar/frontend",
+    "start:backend": "npm run start:prod --workspace=@talking-avatar/backend",
+    "start:frontend": "npm run build --workspace=@talking-avatar/frontend && npm run preview --workspace=@talking-avatar/frontend",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
+    "install:all": "npm install && npm install --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
