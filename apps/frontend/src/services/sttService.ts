@@ -97,7 +97,6 @@ export class SttService {
         console.log('Disconnected from STT service');
       });
 
-      // Listen for recognition results
       this.socket.on('recognition_result', (result: RecognitionResult) => {
         console.log('Received recognition result:', result);
         if (this.onRecognitionResultCallback) {
@@ -105,7 +104,6 @@ export class SttService {
         }
       });
 
-      // Listen for OpenAI responses
       this.socket.on('openai_response', (response: OpenAIResponse) => {
         console.log('Received OpenAI response:', response);
         if (this.onOpenAIResponseCallback) {
@@ -113,7 +111,6 @@ export class SttService {
         }
       });
 
-      // Listen for TTS audio chunks
       this.socket.on('tts_audio_chunk', (chunk: TTSAudioChunk) => {
         console.log('Received TTS audio chunk:', chunk);
         if (this.onTTSAudioChunkCallback) {
@@ -121,7 +118,6 @@ export class SttService {
         }
       });
 
-      // Listen for viseme data
       this.socket.on('tts_viseme_data', (data: { sessionId: string; visemeData: VisemeData[]; timestamp: string }) => {
         console.log('Received viseme data:', data);
         if (this.onVisemeDataCallback) {
@@ -129,7 +125,6 @@ export class SttService {
         }
       });
 
-      // Listen for TTS synthesis complete
       this.socket.on('tts_synthesis_complete', (complete: TTSSynthesisComplete) => {
         console.log('TTS synthesis complete:', complete);
         if (this.onTTSSynthesisCompleteCallback) {
