@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useRef } fro
 import { SttService, RecognitionResult, ChatMessage, OpenAIResponse, TTSAudioChunk, VisemeData, TTSSynthesisComplete } from '../services/sttService';
 
 interface SttContextType {
+  sttService: SttService | null;
   isConnected: boolean;
   isRecording: boolean;
   isRecognizing: boolean;
@@ -41,7 +42,6 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [sttService, setSttService] = useState<SttService | null>(null);
   
-  // Audio playback refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer[]>([]);
   const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -190,18 +190,15 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
         audioContextRef.current = new AudioContext();
       }
 
-      // Convert base64 to ArrayBuffer
       const binaryString = atob(chunk.audioData);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      // Decode audio data
       const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer);
       audioBufferRef.current.push(audioBuffer);
 
-      // If this is the first chunk, start playing
       if (audioBufferRef.current.length === 1) {
         playTTSAudio();
       }
@@ -249,6 +246,7 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
   };
 
   const value: SttContextType = {
+    sttService,
     isConnected,
     isRecording,
     isRecognizing,

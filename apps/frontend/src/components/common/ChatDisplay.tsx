@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Box, Text, VStack, HStack, Avatar, Badge } from '@chakra-ui/react';
+import { Box, Text, VStack, HStack, Badge, Flex } from '@chakra-ui/react';
 import { useSttContext } from '../../contexts/SttContext';
 
 interface ChatDisplayProps {
@@ -71,23 +71,12 @@ export const ChatDisplay: React.FC<ChatDisplayProps> = ({ className = '' }) => {
             </Box>
           ) : (
             chatMessages.map((message) => (
-              <HStack
+              <Flex
                 key={message.id}
                 align="flex-start"
                 gap={2}
                 justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
               >
-                {message.role === 'assistant' && (
-                  <Avatar.Root
-                    size="sm"
-                    bg="blue.500"
-                    color="white"
-                  >
-                    <Avatar.Image src="https://github.com/shadcn.png" />
-                    <Avatar.Fallback>AI Assistant</Avatar.Fallback>
-                  </Avatar.Root>
-                )}
-                
                 <Box
                   maxW="80%"
                   bg={message.role === 'user' ? 'blue.500' : 'white'}
@@ -108,18 +97,7 @@ export const ChatDisplay: React.FC<ChatDisplayProps> = ({ className = '' }) => {
                     {formatTime(message.timestamp)}
                   </Text>
                 </Box>
-
-                {message.role === 'user' && (
-                  <Avatar.Root
-                    size="sm"
-                    bg="green.500"
-                    color="white"
-                  >
-                    <Avatar.Image src="https://github.com/shadcn.png" />
-                    <Avatar.Fallback>You</Avatar.Fallback>
-                  </Avatar.Root>
-                )}
-              </HStack>
+              </Flex>
             ))
           )}
 
