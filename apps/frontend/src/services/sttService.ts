@@ -28,9 +28,21 @@ export interface ChatMessage {
   sessionId: string;
 }
 
-export interface OpenAIResponse {
+export interface VisemeData {
+  id: number;
+  offset: number;
+  animation: string;
+}
+
+export interface TTSAudioChunk {
+  audioData: string; // base64 encoded
+  offset: number;
+  duration: number;
+  timestamp: string;
+}
+
+export interface TTSSynthesisComplete {
   sessionId: string;
-  response: ChatMessage;
   timestamp: string;
 }
 
@@ -38,6 +50,12 @@ export interface SttConfig {
   language?: string;
   audioFormat?: string;
   sessionId?: string;
+}
+
+export interface OpenAIResponse {
+  sessionId: string;
+  response: ChatMessage;
+  timestamp: string;
 }
 
 export class SttService {
@@ -51,6 +69,9 @@ export class SttService {
   private workletNode: AudioWorkletNode | null = null;
   private onRecognitionResultCallback?: (result: RecognitionResult) => void;
   private onOpenAIResponseCallback?: (response: OpenAIResponse) => void;
+  private onTTSAudioChunkCallback?: (chunk: TTSAudioChunk) => void;
+  private onVisemeDataCallback?: (visemeData: VisemeData[]) => void;
+  private onTTSSynthesisCompleteCallback?: (complete: TTSSynthesisComplete) => void;
 
   constructor(private apiUrl: string = 'http://localhost:3000') {}
 
@@ -89,6 +110,30 @@ export class SttService {
         console.log('Received OpenAI response:', response);
         if (this.onOpenAIResponseCallback) {
           this.onOpenAIResponseCallback(response);
+        }
+      });
+
+      // Listen for TTS audio chunks
+      this.socket.on('tts_audio_chunk', (chunk: TTSAudioChunk) => {
+        console.log('Received TTS audio chunk:', chunk);
+        if (this.onTTSAudioChunkCallback) {
+          this.onTTSAudioChunkCallback(chunk);
+        }
+      });
+
+      // Listen for viseme data
+      this.socket.on('tts_viseme_data', (data: { sessionId: string; visemeData: VisemeData[]; timestamp: string }) => {
+        console.log('Received viseme data:', data);
+        if (this.onVisemeDataCallback) {
+          this.onVisemeDataCallback(data.visemeData);
+        }
+      });
+
+      // Listen for TTS synthesis complete
+      this.socket.on('tts_synthesis_complete', (complete: TTSSynthesisComplete) => {
+        console.log('TTS synthesis complete:', complete);
+        if (this.onTTSSynthesisCompleteCallback) {
+          this.onTTSSynthesisCompleteCallback(complete);
         }
       });
     });
@@ -265,5 +310,17 @@ export class SttService {
 
   setOnOpenAIResponseCallback(callback: (response: OpenAIResponse) => void): void {
     this.onOpenAIResponseCallback = callback;
+  }
+
+  setOnTTSAudioChunkCallback(callback: (chunk: TTSAudioChunk) => void): void {
+    this.onTTSAudioChunkCallback = callback;
+  }
+
+  setOnVisemeDataCallback(callback: (visemeData: VisemeData[]) => void): void {
+    this.onVisemeDataCallback = callback;
+  }
+
+  setOnTTSSynthesisCompleteCallback(callback: (complete: TTSSynthesisComplete) => void): void {
+    this.onTTSSynthesisCompleteCallback = callback;
   }
 }

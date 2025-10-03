@@ -13,6 +13,7 @@ import { SttService } from './stt.service';
 import { StartRecognitionDto } from './dto/start-recognition.dto';
 import { AudioChunkDto } from './dto/audio-chunk.dto';
 import { RecognitionResult, RecognitionError } from './entities/recognition-result.entity';
+import { TTSAudioChunk, VisemeData } from '../tts/tts.service';
 
 @WebSocketGateway({
   cors: {
@@ -32,6 +33,9 @@ export class SttGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private readonly sttService: SttService) {
     this.sttService.setOnRecognitionResultCallback(this.handleRecognitionResult.bind(this));
     this.sttService.setOnOpenAIResponseCallback(this.handleOpenAIResponse.bind(this));
+    this.sttService.setOnTTSAudioChunkCallback(this.handleTTSAudioChunk.bind(this));
+    this.sttService.setOnVisemeDataCallback(this.handleVisemeData.bind(this));
+    this.sttService.setOnTTSSynthesisCompleteCallback(this.handleTTSSynthesisComplete.bind(this));
   }
 
   handleConnection(client: Socket) {
@@ -206,6 +210,47 @@ export class SttGateway implements OnGatewayConnection, OnGatewayDisconnect {
         timestamp: new Date(),
       });
       this.logger.debug(`Emitted OpenAI response to client ${client.id}: ${response.content?.substring(0, 50)}...`);
+    }
+  }
+
+  private handleTTSAudioChunk(sessionId: string, chunk: TTSAudioChunk) {
+    const client = this.sessionSockets.get(sessionId);
+    if (client) {
+      const base64Audio = Buffer.from(chunk.audioData).toString('base64');
+      
+      client.emit('tts_audio_chunk', {
+        sessionId,
+        audioData: base64Audio,
+        duration: chunk.duration,
+        timestamp: new Date(),
+      });
+      
+      this.logger.debug(`Emitted TTS audio chunk to client ${client.id}, size: ${chunk.audioData.byteLength} bytes`);
+    }
+  }
+
+  private handleVisemeData(sessionId: string, visemeData: VisemeData[]) {
+    const client = this.sessionSockets.get(sessionId);
+    if (client) {
+      client.emit('tts_viseme_data', {
+        sessionId,
+        visemeData,
+        timestamp: new Date(),
+      });
+      
+      this.logger.debug(`Emitted viseme data to client ${client.id}: ${visemeData.length} visemes`);
+    }
+  }
+
+  private handleTTSSynthesisComplete(sessionId: string) {
+    const client = this.sessionSockets.get(sessionId);
+    if (client) {
+      client.emit('tts_synthesis_complete', {
+        sessionId,
+        timestamp: new Date(),
+      });
+      
+      this.logger.debug(`Emitted TTS synthesis complete to client ${client.id}`);
     }
   }
 }
