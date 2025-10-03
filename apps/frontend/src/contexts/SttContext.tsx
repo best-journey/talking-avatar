@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { SttService, RecognitionResult, ChatMessage, OpenAIResponse } from '../services/sttService';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
+import { SttService, RecognitionResult, ChatMessage, OpenAIResponse, TTSAudioChunk, VisemeData, TTSSynthesisComplete } from '../services/sttService';
 
 interface SttContextType {
   isConnected: boolean;
@@ -8,6 +8,8 @@ interface SttContextType {
   currentSessionId: string | null;
   results: RecognitionResult[];
   chatMessages: ChatMessage[];
+  visemeData: VisemeData[];
+  isPlayingTTS: boolean;
   error: string | null;
   startRecognition: () => Promise<void>;
   stopRecognition: () => Promise<void>;
@@ -16,6 +18,8 @@ interface SttContextType {
   clearResults: () => void;
   clearChatMessages: () => void;
   clearError: () => void;
+  playTTSAudio: () => void;
+  pauseTTSAudio: () => void;
 }
 
 const SttContext = createContext<SttContextType | undefined>(undefined);
@@ -32,8 +36,15 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [results, setResults] = useState<RecognitionResult[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [visemeData, setVisemeData] = useState<VisemeData[]>([]);
+  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sttService, setSttService] = useState<SttService | null>(null);
+  
+  // Audio playback refs
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer[]>([]);
+  const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   useEffect(() => {
     const initializeStt = async () => {
@@ -58,6 +69,19 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
 
         service.setOnOpenAIResponseCallback((response: OpenAIResponse) => {
           setChatMessages(prev => [...prev, response.response]);
+        });
+
+        service.setOnTTSAudioChunkCallback((chunk: TTSAudioChunk) => {
+          handleTTSAudioChunk(chunk);
+        });
+
+        service.setOnVisemeDataCallback((visemeData: VisemeData[]) => {
+          setVisemeData(prev => [...prev, ...visemeData]);
+        });
+
+        service.setOnTTSSynthesisCompleteCallback((_: TTSSynthesisComplete) => {
+          console.log('TTS synthesis completed');
+          setIsPlayingTTS(false);
         });
 
         service.onRecognitionError((error: any) => {
@@ -160,6 +184,70 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
     setError(null);
   };
 
+  const handleTTSAudioChunk = async (chunk: TTSAudioChunk) => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      // Convert base64 to ArrayBuffer
+      const binaryString = atob(chunk.audioData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // Decode audio data
+      const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer);
+      audioBufferRef.current.push(audioBuffer);
+
+      // If this is the first chunk, start playing
+      if (audioBufferRef.current.length === 1) {
+        playTTSAudio();
+      }
+    } catch (error) {
+      console.error('Error handling TTS audio chunk:', error);
+    }
+  };
+
+  const playTTSAudio = () => {
+    if (!audioContextRef.current || audioBufferRef.current.length === 0) {
+      return;
+    }
+
+    setIsPlayingTTS(true);
+    
+    const playNextBuffer = (index: number) => {
+      if (index >= audioBufferRef.current.length) {
+        audioBufferRef.current = [];
+        setIsPlayingTTS(false);
+        return;
+      }
+
+      const source = audioContextRef.current!.createBufferSource();
+      source.buffer = audioBufferRef.current[index];
+      source.connect(audioContextRef.current!.destination);
+      
+      currentAudioSourceRef.current = source;
+      
+      source.onended = () => {
+        playNextBuffer(index + 1);
+      };
+      
+      source.start();
+    };
+
+    playNextBuffer(0);
+  };
+
+  const pauseTTSAudio = () => {
+    if (currentAudioSourceRef.current) {
+      currentAudioSourceRef.current.stop();
+      currentAudioSourceRef.current = null;
+    }
+    setIsPlayingTTS(false);
+  };
+
   const value: SttContextType = {
     isConnected,
     isRecording,
@@ -167,6 +255,8 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
     currentSessionId,
     results,
     chatMessages,
+    visemeData,
+    isPlayingTTS,
     error,
     startRecognition,
     stopRecognition,
@@ -175,6 +265,8 @@ export function SttProvider({ children, apiUrl }: SttProviderProps) {
     clearResults,
     clearChatMessages,
     clearError,
+    playTTSAudio,
+    pauseTTSAudio,
   };
 
   return (

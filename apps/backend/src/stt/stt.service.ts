@@ -4,6 +4,7 @@ import * as sdk from 'microsoft-cognitiveservices-speech-sdk';
 import { RecognitionResult, RecognitionSession } from './entities/recognition-result.entity';
 import { StartRecognitionDto, AudioFormat, Language } from './dto/start-recognition.dto';
 import { OpenAIService } from '../openai/openai.service';
+import { TTSService, TTSAudioChunk, VisemeData } from '../tts/tts.service';
 
 @Injectable()
 export class SttService implements OnModuleInit, OnModuleDestroy {
@@ -17,10 +18,14 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
   private isInitialized = false;
   private onRecognitionResultCallback?: (sessionId: string, result: RecognitionResult) => void;
   private onOpenAIResponseCallback?: (sessionId: string, response: any) => void;
+  private onTTSAudioChunkCallback?: (sessionId: string, chunk: TTSAudioChunk) => void;
+  private onVisemeDataCallback?: (sessionId: string, visemeData: VisemeData[]) => void;
+  private onTTSSynthesisCompleteCallback?: (sessionId: string) => void;
 
   constructor(
     private configService: ConfigService,
     private openaiService: OpenAIService,
+    private ttsService: TTSService,
   ) {}
 
   async onModuleInit() {
@@ -202,6 +207,18 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
     this.onOpenAIResponseCallback = callback;
   }
 
+  setOnTTSAudioChunkCallback(callback: (sessionId: string, chunk: TTSAudioChunk) => void): void {
+    this.onTTSAudioChunkCallback = callback;
+  }
+
+  setOnVisemeDataCallback(callback: (sessionId: string, visemeData: VisemeData[]) => void): void {
+    this.onVisemeDataCallback = callback;
+  }
+
+  setOnTTSSynthesisCompleteCallback(callback: (sessionId: string) => void): void {
+    this.onTTSSynthesisCompleteCallback = callback;
+  }
+
   private setupRecognizerEvents(recognizer: sdk.SpeechRecognizer, sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -262,6 +279,10 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
             if (this.onOpenAIResponseCallback) {
               this.onOpenAIResponseCallback(sessionId, response);
             }
+
+            this.synthesizeOpenAIResponse(response.content, sessionId).catch((ttsError) => {
+              this.logger.error(`Error synthesizing OpenAI response for session ${sessionId}:`, ttsError);
+            });
           }).catch((error) => {
             this.logger.error(`Error generating OpenAI response for session ${sessionId}:`, error);
           });
@@ -304,6 +325,42 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
         session.isActive = false;
       }
     );
+  }
+
+  private async synthesizeOpenAIResponse(text: string, sessionId: string): Promise<void> {
+    try {
+      const ttsSessionId = `${sessionId}_tts_${Date.now()}`;
+      
+      this.ttsService.setOnAudioChunkCallback((ttsSessionId, chunk) => {
+        if (this.onTTSAudioChunkCallback) {
+          this.onTTSAudioChunkCallback(sessionId, chunk);
+        }
+      });
+
+      this.ttsService.setOnVisemeDataCallback((ttsSessionId, visemeData) => {
+        if (this.onVisemeDataCallback) {
+          this.onVisemeDataCallback(sessionId, visemeData);
+        }
+      });
+
+      this.ttsService.setOnSynthesisCompleteCallback((ttsSessionId) => {
+        if (this.onTTSSynthesisCompleteCallback) {
+          this.onTTSSynthesisCompleteCallback(sessionId);
+        }
+      });
+
+      await this.ttsService.synthesizeText(text, ttsSessionId, {
+        voice: 'en-US-AriaNeural',
+        language: 'en-US',
+        rate: 1.0,
+        pitch: 0,
+      });
+
+      this.logger.log(`Started TTS synthesis for OpenAI response in session ${sessionId}`);
+    } catch (error) {
+      this.logger.error(`Failed to synthesize OpenAI response for session ${sessionId}:`, error);
+      throw error;
+    }
   }
 
   private extractConfidence(result: sdk.SpeechRecognitionResult): number {
