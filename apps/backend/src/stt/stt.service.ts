@@ -113,6 +113,7 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
       this.sessions.set(sessionId, session);
 
       this.setupRecognizerEvents(recognizer, sessionId);
+      this.synthesizeOpenAIResponse("Hello! How can I assist you today?", sessionId);
 
       this.logger.log(`Started recognition session: ${sessionId} with language: ${language}`);
       return session;
@@ -255,6 +256,10 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
       try {
         this.logger.debug(`Recognized event for session ${sessionId}, reason: ${e.result.reason}`);
         if (e.result.reason === sdk.ResultReason.RecognizedSpeech) {
+          if (e.result.text.trim() === '') {
+            return;
+          }
+
           const result: RecognitionResult = {
             id: `${sessionId}-${Date.now()}`,
             text: e.result.text,
@@ -272,7 +277,7 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
           if (this.onRecognitionResultCallback) {
             this.onRecognitionResultCallback(sessionId, result);
           }
-          
+
           this.openaiService.generateResponse(result.text, sessionId).then((response) => {
             this.logger.log(`Generated response for session ${sessionId}: ${response.content}`);
             
