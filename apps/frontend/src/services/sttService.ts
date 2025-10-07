@@ -73,7 +73,7 @@ export class SttService {
   private onVisemeDataCallback?: (visemeData: VisemeData[]) => void;
   private onTTSSynthesisCompleteCallback?: (complete: TTSSynthesisComplete) => void;
 
-  constructor(private apiUrl: string = 'http://localhost:3000') {}
+  constructor(private apiUrl: string = 'http://localhost:8500') {}
 
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -190,10 +190,10 @@ export class SttService {
       workletNode.port.onmessage = (event) => {
         const pcm = new Uint8Array(event.data);
         this.sendAudioChunk(pcm.buffer);
-      }
+      };
       
-      source.connect(workletNode)
-      workletNode.connect(audioContext.destination)
+      source.connect(workletNode);
+      workletNode.connect(audioContext.destination);
       
       this.audioContext = audioContext;
       this.workletNode = workletNode;
@@ -251,7 +251,7 @@ export class SttService {
     });
   }
 
-  private async sendAudioChunk(audioData: string): Promise<void> {
+  private async sendAudioChunk(audioData: ArrayBuffer): Promise<void> {
     if (!this.isConnected || !this.socket || !this.currentSessionId) {
       return;
     }
