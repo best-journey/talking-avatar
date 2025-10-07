@@ -12,7 +12,7 @@ import { Logger } from '@nestjs/common';
 import { SttService } from './stt.service';
 import { StartRecognitionDto } from './dto/start-recognition.dto';
 import { AudioChunkDto } from './dto/audio-chunk.dto';
-import { RecognitionResult, RecognitionError } from './entities/recognition-result.entity';
+import { RecognitionResult } from './entities/recognition-result.entity';
 import { TTSAudioChunk, VisemeData } from '../tts/tts.service';
 
 @WebSocketGateway({
@@ -168,20 +168,6 @@ export class SttGateway implements OnGatewayConnection, OnGatewayDisconnect {
         code: 'STATUS_ERROR',
         message: error.message,
       });
-    }
-  }
-
-  emitRecognitionResult(clientId: string, result: RecognitionResult) {
-    const client = this.server.sockets.sockets.get(clientId);
-    if (client) {
-      client.emit('recognition_result', result);
-    }
-  }
-
-  emitRecognitionError(clientId: string, error: RecognitionError) {
-    const client = this.server.sockets.sockets.get(clientId);
-    if (client) {
-      client.emit('recognition_error', error);
     }
   }
 
