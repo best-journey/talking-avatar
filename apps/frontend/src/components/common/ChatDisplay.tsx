@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Box, Text, VStack, HStack, Badge, Flex } from '@chakra-ui/react';
+import { Box, Text, Flex } from '@chakra-ui/react';
 import { useSttContext } from '../../contexts/SttContext';
 
 interface ChatDisplayProps {
@@ -29,92 +29,56 @@ export const ChatDisplay: React.FC<ChatDisplayProps> = ({ className = '' }) => {
       position="absolute"
       left="20px"
       top="20px"
-      width="350px"
-      height="500px"
-      bg="white"
-      borderRadius="lg"
-      boxShadow="lg"
-      border="1px solid"
-      borderColor="gray.200"
-      display="flex"
-      flexDirection="column"
-      overflow="hidden"
+      maxWidth="400px"
+      zIndex={10}
     >
-      <Box
-        bg="blue.500"
-        color="white"
-        p={3}
-        borderRadius="lg 0 0 0"
-        fontWeight="bold"
-        fontSize="sm"
-      >
-        <HStack justify="space-between">
-          <Text>Chat Assistant</Text>
-          <Badge colorScheme="green" variant="solid">
-            {chatMessages.length} messages
-          </Badge>
-        </HStack>
-      </Box>
-
-      <Box
-        flex="1"
-        overflowY="auto"
-        p={3}
-        bg="gray.50"
-      >
-        <VStack gap={3} align="stretch">
-          {chatMessages.length === 0 ? (
-            <Box textAlign="center" py={8}>
-              <Text color="gray.500" fontSize="sm">
-                Start speaking to begin a conversation
+      {chatMessages.length === 0 ? (
+        <Box textAlign="center" py={4}>
+          <Text color="gray.500" fontSize="sm" opacity={0.7}>
+            Start speaking to begin a conversation
+          </Text>
+        </Box>
+      ) : (
+        chatMessages.map((message) => (
+          <Flex
+            key={message.id}
+            align="flex-start"
+            gap={2}
+            justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
+            mb={3}
+            px={2}
+          >
+            <Box
+              maxW="85%"
+              bg={message.role === 'user' ? 'rgba(59, 130, 246, 0.9)' : 'rgba(255, 255, 255, 0.95)'}
+              color={message.role === 'user' ? 'white' : 'gray.800'}
+              p={3}
+              borderRadius={message.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px'}
+              boxShadow="0 2px 8px rgba(0,0,0,0.15)"
+              backdropFilter="blur(10px)"
+              border={message.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.2)'}
+              fontSize="sm"
+              wordBreak="break-word"
+              lineHeight="1.4"
+              opacity={0.8}
+            >
+              <Text fontSize="sm" wordBreak="break-word">
+                {message.content}
+              </Text>
+              <Text
+                fontSize="xs"
+                opacity={0.6}
+                mt={1}
+                textAlign="right"
+              >
+                {formatTime(message.timestamp)}
               </Text>
             </Box>
-          ) : (
-            chatMessages.map((message) => (
-              <Flex
-                key={message.id}
-                align="flex-start"
-                gap={2}
-                justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
-              >
-                <Box
-                  maxW="80%"
-                  bg={message.role === 'user' ? 'blue.500' : 'white'}
-                  color={message.role === 'user' ? 'white' : 'black'}
-                  p={2}
-                  borderRadius="lg"
-                  boxShadow="sm"
-                >
-                  <Text fontSize="sm" wordBreak="break-word">
-                    {message.content}
-                  </Text>
-                  <Text
-                    fontSize="xs"
-                    opacity={0.7}
-                    mt={1}
-                    textAlign="right"
-                  >
-                    {formatTime(message.timestamp)}
-                  </Text>
-                </Box>
-              </Flex>
-            ))
-          )}
+          </Flex>
+        ))
+      )}
 
-          <div ref={messagesEndRef} />
-        </VStack>
-      </Box>
-
-      <Box
-        bg="gray.100"
-        p={2}
-        borderTop="1px solid"
-        borderColor="gray.200"
-      >
-        <Text fontSize="xs" color="gray.600" textAlign="center">
-          Powered by OpenAI GPT-3.5
-        </Text>
-      </Box>
+      <div ref={messagesEndRef} />
     </Box>
   );
 };
