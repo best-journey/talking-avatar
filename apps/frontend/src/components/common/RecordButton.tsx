@@ -1,4 +1,4 @@
-import { IconButton, Box, Text, VStack } from '@chakra-ui/react';
+import { IconButton, Box, VStack } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import { FaMicrophone, FaStop } from 'react-icons/fa';
 import { useSttContext } from '../../contexts/SttContext';
@@ -73,7 +73,7 @@ export const RecordButton = () => {
   const isActive = isRecording || isRecognizing;
 
   return (
-    <Box position="absolute" bottom="20px" right="20px" zIndex={10}>
+    <Box position="fixed" bottom="20px" left="20px" zIndex={10}>
       <VStack gap={2} align="center">
         <Box
           bg={isConnected ? 'green.500' : 'red.500'}
@@ -133,12 +133,6 @@ export const RecordButton = () => {
         >
           {isActive ? <FaStop /> : <FaMicrophone />}
         </IconButton>
-
-        <Text fontSize="xs" color="gray.600" textAlign="center" maxW="100px">
-          {isProcessing ? 'Processing...' : 
-           isActive ? 'Recording...' : 
-           isConnected ? 'Click to record' : 'Connecting...'}
-        </Text>
       </VStack>
     </Box>
   );

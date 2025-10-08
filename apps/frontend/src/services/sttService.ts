@@ -112,21 +112,18 @@ export class SttService {
       });
 
       this.socket.on('tts_audio_chunk', (chunk: TTSAudioChunk) => {
-        console.log('Received TTS audio chunk:', chunk);
         if (this.onTTSAudioChunkCallback) {
           this.onTTSAudioChunkCallback(chunk);
         }
       });
 
       this.socket.on('tts_viseme_data', (data: { sessionId: string; visemeData: VisemeData[]; timestamp: string }) => {
-        console.log('Received viseme data:', data);
         if (this.onVisemeDataCallback) {
           this.onVisemeDataCallback(data.visemeData);
         }
       });
 
       this.socket.on('tts_synthesis_complete', (complete: TTSSynthesisComplete) => {
-        console.log('TTS synthesis complete:', complete);
         if (this.onTTSSynthesisCompleteCallback) {
           this.onTTSSynthesisCompleteCallback(complete);
         }
