@@ -42,6 +42,9 @@ export class SttService implements OnModuleInit, OnModuleDestroy {
       this.speechConfig.speechRecognitionLanguage = Language.EN_US;
       this.speechConfig.outputFormat = sdk.OutputFormat.Detailed;
       
+      this.speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "1000");
+      this.speechConfig.setProperty(sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "500");
+      
       this.logger.log(`Speech config initialized with language: ${this.speechConfig.speechRecognitionLanguage}`);
       
       this.isInitialized = true;
