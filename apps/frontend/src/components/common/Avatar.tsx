@@ -1,12 +1,13 @@
-import { VRM, VRMExpressionPresetName, VRMHumanBoneName, VRMLoaderPlugin } from '@pixiv/three-vrm';
+import { VRM, VRMExpressionPresetName, VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useControls } from 'leva';
 import { useEffect, useRef, useState } from 'react';
-import { Object3D } from 'three';
+import { AnimationMixer, AnimationAction } from 'three';
 import { GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { useSttContext } from '../../contexts/SttContext';
 import { VisemeData } from '../../services/sttService';
+import { convertFbxToVrmAnimation } from '@/utils/avatar';
 
 interface AnimationData {
   preset: VRMExpressionPresetName | null;
@@ -75,25 +76,28 @@ function createAnimationDataFromVisemes(
 export const Avatar = () => {
   const { sttService } = useSttContext();
 
-  const { ...controls } = useControls({
-    Head: { value: 0, min: -0.4, max: 0.4 },
-    leftArm: { value: 0, min: -0.4, max: 0.4 },
-    rightArm: { value: 0, min: -0.4, max: 0.4 },
-    Neutral: { value: 0, min: 0, max: 1 },
-    Angry: { value: 0, min: 0, max: 1 },
-    Relaxed: { value: 0, min: 0, max: 1 },
-    Happy: { value: 0, min: 0, max: 1 },
-    Sad: { value: 0, min: 0, max: 1 },
-    Surprised: { value: 0, min: 0, max: 1 },
-    Extra: { value: 0, min: 0, max: 1 },
-  })
+  // const { ...controls } = useControls({
+  //   Head: { value: 0, min: -0.4, max: 0.4 },
+  //   leftArm: { value: 0, min: -0.4, max: 0.4 },
+  //   rightArm: { value: 0, min: -0.4, max: 0.4 },
+  //   Neutral: { value: 0, min: 0, max: 1 },
+  //   Angry: { value: 0, min: 0, max: 1 },
+  //   Relaxed: { value: 0, min: 0, max: 1 },
+  //   Happy: { value: 0, min: 0, max: 1 },
+  //   Sad: { value: 0, min: 0, max: 1 },
+  //   Surprised: { value: 0, min: 0, max: 1 },
+  //   Extra: { value: 0, min: 0, max: 1 },
+  //   PlayAnimation: { value: true },
+  //   LoopAnimation: { value: true },
+  // })
   const { scene, camera } = useThree()
   const [gltf, setGltf] = useState<GLTF>()
   const [progress, setProgress] = useState<number>(0)
   const avatar = useRef<VRM>(null)
-  const [bonesStore, setBones] = useState<{ [part: string]: Object3D | null }>({})
   const animationQueue = useRef<AnimationData[]>([])
   const lastVisemeTime = useRef<number>(0)
+  const mixer = useRef<AnimationMixer | null>(null)
+  const animationAction = useRef<AnimationAction | null>(null)
 
   const handleVisemeData = (visemeData: VisemeData[]) => {
     if (avatar.current && visemeData.length > 0) {
@@ -120,28 +124,20 @@ export const Avatar = () => {
 
       loader.load(
         '/three-vrm-girl.vrm',
-        (gltf: any) => {
-          setGltf(gltf)
-          const vrm: VRM = gltf.userData.vrm
-          avatar.current = vrm
-          vrm.lookAt!.target = camera
-
-          vrm.humanoid!.getNormalizedBoneNode(VRMHumanBoneName.Hips)!.rotation.y = Math.PI
-
-          const bones = {
-            head: vrm.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Head),
-            neck: vrm.humanoid.getRawBoneNode(VRMHumanBoneName.Neck),
-            hips: vrm.humanoid.getRawBoneNode(VRMHumanBoneName.Hips),
-            spine: vrm.humanoid.getRawBoneNode(VRMHumanBoneName.Spine),
-            upperChest: vrm.humanoid.getRawBoneNode(VRMHumanBoneName.UpperChest),
-            leftArm: vrm.humanoid.getNormalizedBoneNode(VRMHumanBoneName.LeftUpperArm),
-            rightArm: vrm.humanoid.getNormalizedBoneNode(VRMHumanBoneName.RightUpperArm)
-          }
-
-          setBones(bones)
+        async (gltf: GLTF) => {
+          setGltf(gltf);
+          const vrm: VRM = gltf.userData.vrm;
+          avatar.current = vrm;
+          vrm.lookAt!.target = camera;
+          const fbx = await new FBXLoader().loadAsync('/idle.fbx');
+          const clip = convertFbxToVrmAnimation(fbx, gltf.userData.vrm);
+          mixer.current = new AnimationMixer(vrm.scene);
+          animationAction.current = mixer.current.clipAction(clip);
+          animationAction.current.setLoop(2201, Infinity);
+          animationAction.current.play();
         },
         (xhr: any) => {
-          setProgress((xhr.loaded / xhr.total) * 100)
+          setProgress((xhr.loaded / xhr.total) * 100);
         },
         (error: any) => {
           console.error('Error loading VRM model:', error)
@@ -194,33 +190,26 @@ export const Avatar = () => {
           em.setValue('blink', 1 - Math.abs(Math.sin(t * blinkFrequency * Math.PI)))
         }
         
-        em.setValue('neutral', controls.Neutral)
-        em.setValue('angry', controls.Angry)
-        em.setValue('relaxed', controls.Relaxed)
-        em.setValue('happy', controls.Happy)
-        em.setValue('sad', controls.Sad)
-        em.setValue('Surprised', controls.Surprised)
-        em.setValue('Extra', controls.Extra)
+        // em.setValue('neutral', controls.Neutral)
+        // em.setValue('angry', controls.Angry)
+        // em.setValue('relaxed', controls.Relaxed)
+        // em.setValue('happy', controls.Happy)
+        // em.setValue('sad', controls.Sad)
+        // em.setValue('Surprised', controls.Surprised)
+        // em.setValue('Extra', controls.Extra)
       }
     }
-    if (bonesStore.neck) {
-      bonesStore.neck.rotation.y = (Math.PI / 100) * Math.sin((t / 4) * Math.PI)
-    }
 
-    if (bonesStore.upperChest) {
-      bonesStore.upperChest.rotation.y = (Math.PI / 600) * Math.sin((t / 8) * Math.PI)
-      bonesStore.spine!.position.y = (Math.PI / 400) * Math.sin((t / 2) * Math.PI)
-      bonesStore.spine!.position.z = (Math.PI / 600) * Math.sin((t / 2) * Math.PI)
-    }
-    if (bonesStore.head) {
-      bonesStore.head.rotation.y = controls.Head * Math.PI
-    }
-
-    if (bonesStore.leftArm) {
-      bonesStore.leftArm.rotation.z = controls.leftArm * Math.PI
-    }
-    if (bonesStore.rightArm) {
-      bonesStore.rightArm.rotation.z = controls.rightArm * Math.PI
+    if (mixer.current) {
+      mixer.current.update(delta)
+      
+      // if (controls.PlayAnimation && animationAction.current && !animationAction.current.isRunning()) {
+      //   animationAction.current.play()
+      // } else if (!controls.PlayAnimation && animationAction.current && animationAction.current.isRunning()) {
+      //   animationAction.current.paused = true
+      // } else if (controls.PlayAnimation && animationAction.current && animationAction.current.paused) {
+      //   animationAction.current.paused = false
+      // }
     }
   })
   return (

@@ -9,13 +9,18 @@ import { ChatDisplay } from '../components/common/ChatDisplay';
 export const AvatarPage = () => {
   return (
     <Box h="100vh" w="100vw" position="relative">
-      <Canvas camera={{ position: [0, 1.3, 0.6] }}>
+      <Canvas camera={{ position: [0, 1.4, -0.8] }}>
         <ambientLight intensity={0.65} />
         <spotLight position={[0, 2, -1]} intensity={0.4} />
         <Suspense fallback={null}>
           <Avatar />
         </Suspense>
-        <OrbitControls target={[0, 1.3, 0]} />
+        <OrbitControls
+          target={[0, 1.2, 0]}
+          enableZoom={false}
+          enablePan={false}
+          enableRotate={false}
+        />
       </Canvas>
 
       <ChatDisplay />
